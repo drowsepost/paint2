@@ -1,0 +1,32 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+	<title>paint2(pre alpha)</title>
+
+	<link href="assets/demoStyles.css" rel="stylesheet" type="text/css" />
+	<script src="assets/easeljs-0.4.2.min.js"></script>
+	<script src="assets/createjs.paint2.canvas.js"></script>
+
+	<script>
+		var ep2 = new paint2();
+	</script>
+</head>
+<body onload="ep2.init('myCanvas');ep2.newLayer();ep2.newLayer();">
+
+	<header id="header" class="EaselJS">
+		<h1><span class="text-product">Easel<strong>JS</strong></span> Paint2</h1>
+		<p>custom by canotun</p>
+	</header>
+	<div style="text-align: center">
+		<canvas id="myCanvas" width="800" height="495" style="border-radius: 5px;margin: 10px;"></canvas><br />
+		<input type="button" onclick="ep2.selectLayer(0);" value="layer1" />
+		<input type="button" onclick="ep2.selectLayer(1);" value="layer2" />
+		<input type="button" onclick="ep2.selectLayer(2);" value="layer3" /><br />
+		<input type="button" onclick="ep2.toolSelect('pen');" value="pen tool" />
+		<input type="button" onclick="ep2.toolSelect('eraser');" value="eraser tool" /><br />
+		
+		<input type="button" onclick="ep2.penColor(Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 0.5));" value="color change" />
+		
+	</div>
+</body>
+</html>
