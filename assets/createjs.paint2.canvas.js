@@ -11,7 +11,8 @@
 
 if(typeof paint2 === "undefined"){
 function paint2(){
-	var self = this; 
+	var self = this;
+	var logMax=20;
 	
 	//private
 	var canvas;
@@ -33,6 +34,13 @@ function paint2(){
 	var selectedTool;
 	
 	var Layers;
+	var LayerCache;
+	
+	var isEditStarted;
+	var undoCount;
+	
+	
+	self.editlog;
 	
 	self.init = function(element_id) {
 		canvas = document.getElementById(element_id);
@@ -43,6 +51,8 @@ function paint2(){
 		stage = new Stage(canvas);
 		stage.autoClear = true;
 		stage.snapToPixelEnabled = true;
+		//stage.enableMouseOver(10);
+		
 		stage.onMouseDown = handleMouseDown;
 		stage.onMouseUp = handleMouseUp;
 		stage.onMouseMove = handleMouseMove;
@@ -52,6 +62,8 @@ function paint2(){
 		
 		Layers = new Array();
 		currentShape = self.newLayer();
+		
+		editLogging('new');
 		
 		self.toolSelect('pen');
 		self.penColor("rgba(120,180,185,0.5)");
@@ -64,7 +76,6 @@ function paint2(){
 	};
 	
 	var handleMouseMove = function(e) {
-		if(!e){ e = window.event; }
 		
 		var pt = new Point(stage.mouseX, stage.mouseY);
 		var midpt = new Point(oldX + pt.x>>1, oldY+pt.y>>1);
@@ -82,9 +93,9 @@ function paint2(){
 
 	var handleMouseDown = function(e) {
 		cursor.visible = false;
-		if(!e){ e = window.event; }
 		
 		isMouseDown = true;
+		isEditStarted = true;
 		
 		var pt = new Point(stage.mouseX, stage.mouseY);
 		oldX = pt.x;
@@ -96,15 +107,17 @@ function paint2(){
 
 	var handleMouseUp = function() {
 		isMouseDown = false;
-		
-		selectedTool.mouseup();
-		stage.update();
+		if(isEditStarted){
+			isEditStarted = false;
+			selectedTool.mouseup();
+			stage.update();
+			editLogging();
+		}
 	};
 	
 	var handleMouseOut = function() {
 		cursor.visible = false;
-		stage.update();
-		currentShape.draw(canvas_ctx,true);
+		layerdraw(true);
 	}
 	
 	var moveCur = function(shape) {
@@ -167,6 +180,7 @@ function paint2(){
 		bg.cache(0,0,canvas.width,canvas.height);
 		bg.graphics.beginFill("rgba(255,255,255,1)");
 		bg.graphics.drawRect(0, 0, canvas.width, canvas.height);
+		bg.graphics.endFill();
 		bg.updateCache();
 		bg.graphics.clear();
 		return stage.addChild(bg);
@@ -185,25 +199,123 @@ function paint2(){
 	
 	self.selectLayer = function(layer_id) {
 		currentShape = Layers[layer_id];
+		LayerCache = currentShape.getCacheDataURL();
+	};
+	
+	/* log */
+	var editLogging = function(label){
+		var cachedata = currentShape.getCacheDataURL();
+		var prevdata;
+		var l_layercache;
+		
+		//log setup
+		if(!isset(label)){
+			label=selectedTool.name;
+		}
+		
+		if(!isset(self.editlog)){
+			self.editlog = new Array();
+			undoCount=0;
+		}else{
+			prevdata = self.editlog[(self.editlog.length-1)];
+			if(prevdata.layer == currentShape.layerid){
+				l_layercache = undefined;
+			}else{
+				l_layercache = LayerCache;
+			}
+		}
+		
+		//logging
+		if(undoCount>0){
+			self.editlog = self.editlog.slice(0,(self.editlog.length-undoCount));
+			undoCount=0;
+		}
+		
+		self.editlog.push({
+			"label":label,
+			"layer":currentShape.layerid,
+			"b64":cachedata,
+			"layercache":l_layercache
+		});
+		
+		if(self.editlog.length > logMax){
+			self.editlog.shift();
+		}
+		
+		return (self.editlog.length-1);
+	};
+	
+	self.logset = function(logpoint,enablecache){
+		var targetLog = self.editlog[logpoint];
+		var layercache;
+		if(!isset(enablecache)){
+			enablecache=false;
+		}
+		
+		if((logpoint < (self.editlog.length-1))&&(enablecache)){
+			layercache = self.editlog[(logpoint+1)]['layercache'];
+		}
+		
+		var workimage = new Image();
+		if(isset(layercache)){
+			workimage.src = layercache;
+			targetLog = self.editlog[(logpoint+1)];
+		}else{
+			workimage.src = targetLog.b64;
+		}
+		
+		workimage.onload = function(){
+			Layers[targetLog.layer].graphics.beginBitmapFill(workimage);
+			Layers[targetLog.layer].graphics.drawRect(0, 0, canvas.width, canvas.height);
+			Layers[targetLog.layer].graphics.endFill();
+			Layers[targetLog.layer].updateCache();
+			Layers[targetLog.layer].graphics.clear();
+			self.selectLayer(currentShape.layerid);
+			stage.update();
+		}
+		
+		return targetLog.step;
+	};
+	
+	self.undo = function(){
+		var logpoint=(self.editlog.length-1)-(undoCount+1);
+		
+		if(logpoint>=0){
+			undoCount++;
+			return self.logset(logpoint,true);
+		}else{
+			return false;
+		}
+	};
+	
+	self.redo = function(){
+		var logpoint=(self.editlog.length-1)-(undoCount-1);
+		
+		if((logpoint>0)&&(undoCount>0)){
+			undoCount--;
+			return self.logset(logpoint);
+		}else{
+			return false;
+		}
 	};
 	
 	/* color and size */
 	self.penSize = function(setsize){
-		if(typeof(setsize) == 'undefined'){
-			return pensize;
-		}else{
+		if(isset(setsize)){
 			pensize = setsize;
 			cursor = createCursor(selectedTool.name,pensize,cursor);
+			return pensize;
+		}else{
 			return pensize;
 		}
 	};
 	
 	self.penColor = function(setcolor){
-		if(typeof(setcolor) == 'undefined'){
-			return selectedColor;
-		}else{
+		if(isset(setcolor)){
 			selectedColor = setcolor;
 			cursor = createCursor(selectedTool.name,pensize,cursor);
+			return selectedColor;
+		}else{
 			return selectedColor;
 		}
 	};
@@ -257,7 +369,7 @@ function paint2(){
 		mousedown :  function(pt) {
 			var g = currentShape.graphics;
 			g.setStrokeStyle(pensize, 'round', 'round');
-			g.beginStroke(selectedColor);
+			g.beginStroke("rgba(0,0,0,0.1)");
 			g.beginFill();
 		},
 		mouseup : function() {
@@ -268,6 +380,10 @@ function paint2(){
 		}
 		
 	};
+	
+	var isset = function( data ){
+		return ( typeof( data ) != 'undefined' );
+	}
 	
 }
 

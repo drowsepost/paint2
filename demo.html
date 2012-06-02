@@ -1,6 +1,7 @@
 <!DOCTYPE HTML>
 <html>
 <head>
+	<meta charset="utf-8">
 	<title>paint2(pre alpha)</title>
 
 	<link href="assets/demoStyles.css" rel="stylesheet" type="text/css" />
@@ -25,7 +26,10 @@
 		<input type="button" onclick="ep2.toolSelect('pen');" value="pen tool" />
 		<input type="button" onclick="ep2.toolSelect('eraser');" value="eraser tool" /><br />
 		
-		<input type="button" onclick="ep2.penColor(Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 0.5));" value="color change" />
+		<input type="button" onclick="ep2.penColor(Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 0.5));" value="color change" /><br />
+		
+		<input type="button" onclick="ep2.undo();" value="←undo" />
+		<input type="button" onclick="ep2.redo();" value="redo→" />
 		
 	</div>
 </body>
