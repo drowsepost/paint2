@@ -2,35 +2,106 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>paint2(pre alpha)</title>
+	<meta name="viewport" content="width=860" />
+	<meta name="format-detection" content="telephone=no" />
+	<title>paint2 demo</title>
 
-	<link href="assets/demoStyles.css" rel="stylesheet" type="text/css" />
-	<script src="assets/easeljs-0.4.2.min.js"></script>
+	<style>
+		body.paint2 {
+			background-color: #efefef;
+			color: #666;
+			margin: 0px;
+			padding: 0px;
+		}
+		body.paint2 #page{
+			text-align: center;
+		}
+		body.paint2 #page #header{
+			margin: 40px auto 0px auto;
+		}
+		body.paint2 #page #header h1{
+			margin: 0px;
+			padding: 0px;
+		}
+		body.paint2 #page #header h1 a{
+			color: #ccc;
+			text-decoration: none;
+			font-size: 14px;
+			font-weight: bold;
+			position: absolute;
+			top: 10px;left: 10px;
+		}
+		body.paint2 #page #footer{
+			margin: 20px;
+			font-size: 0.8em;
+		}
+		
+		body.paint2 #page #easel{
+			padding: 20px;
+			user-select: none;
+		}
+		body.paint2 #page #easel img,
+		body.paint2 #page #easel canvas{
+			vertical-align:bottom;
+		}
+
+		body.paint2 #page #easel canvas{
+			box-shadow: 0px 0px 20px -5px rgba(0, 0, 0, 0.5);
+		}
+		
+		body.paint2 #page #pallets{
+			user-select: none;
+		}
+
+		body.paint2 #page #pallets input{
+			margin: 0.2em;
+			padding: 0.5em 0.8em;
+			border: 1px solid #ccc;
+			background-color: #fff;
+			color: #666;
+		}
+	</style>
+	
+	<script src="assets/easeljs-0.5.0.min.js"></script>
 	<script src="assets/createjs.paint2.canvas.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
 
 	<script>
-		var ep2 = new paint2();
+		var dpc = new paint2();
+		$(function(){
+			$("#easel").hide().empty().append('<canvas id="myCanvas" width="820" height="500">Browser not supported with Canvas. </canvas>');
+			dpc.init('myCanvas');
+			dpc.layer.add();
+			dpc.layer.add();
+			$("#easel").fadeIn('slow');
+		});
+		
 	</script>
 </head>
-<body onload="ep2.init('myCanvas');ep2.newLayer();ep2.newLayer();">
-
-	<header id="header" class="EaselJS">
-		<h1><span class="text-product">Easel<strong>JS</strong></span> Paint2</h1>
-		<p>custom by canotun</p>
+<body class="paint2">
+<div id="page">
+	<header id="header">
+		<h1><a href="#">paint2 demo</a></h1>
 	</header>
-	<div style="text-align: center">
-		<canvas id="myCanvas" width="800" height="495" style="border-radius: 5px;margin: 10px;"></canvas><br />
-		<input type="button" onclick="ep2.selectLayer(0);" value="layer1" />
-		<input type="button" onclick="ep2.selectLayer(1);" value="layer2" />
-		<input type="button" onclick="ep2.selectLayer(2);" value="layer3" /><br />
-		<input type="button" onclick="ep2.toolSelect('pen');" value="pen tool" />
-		<input type="button" onclick="ep2.toolSelect('eraser');" value="eraser tool" /><br />
+	<div id="easel">
+		<p>requed javascript</p>
+	</div>
+	<div id="pallets">
+		<input type="button" onclick="dpc.toolSelect('pen');" value="pen tool" />
+		<input type="button" onclick="dpc.toolColor(createjs.Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 1));" value="color change" />
+		<input type="button" onclick="dpc.toolSelect('eraser');" value="eraser tool" /><br />
 		
-		<input type="button" onclick="ep2.penColor(Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 0.5));" value="color change" /><br />
+		<input type="button" onclick="dpc.layer.select(0);" value="layer1" />
+		<input type="button" onclick="dpc.layer.select(1);" value="layer2" />
+		<input type="button" onclick="dpc.layer.select(2);" value="layer3" /><br />
 		
-		<input type="button" onclick="ep2.undo();" value="←undo" />
-		<input type="button" onclick="ep2.redo();" value="redo→" />
+		<input type="button" onclick="dpc.undo();" value="&lt; undo" />
+		<input type="button" onclick="dpc.redo();" value="redo &gt;" />
 		
 	</div>
+	<footer id="footer">
+		(c)2012 canotun
+	</footer>
+</div>
 </body>
 </html>

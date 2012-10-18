@@ -1,7 +1,8 @@
 /*
-* EaselJS Paint2
+* CreateJS Paint2
+* https://github.com/canotun/paint2
 * Copyright (c) 2012 drowsepost.com
-* required CreateJS 0.4.2 and up
+* required CreateJS 0.5.x
 *
 * based EaselJS "CurveTo" Sample script.
 * by Copyright (c) 2010 gskinner.com, inc.
@@ -9,317 +10,333 @@
 * MIT License
 */
 
+/*
+rev 2012/10/09
+todo:
+[debug]sort the layer,
+[required]save the data,
+[required]user interface,
+[low priority]select the Rectangle,
+[low priority]move the selection
+*/
+
 if(typeof paint2 === "undefined"){
 function paint2(){
-	var self = this;
-	var logMax=20;
+	var self = this; //Registers a namespace.
 	
-	//private
 	var canvas;
 	var canvas_ctx;
 	
 	var stage;
-	var backgroundShape;
 	var currentShape;
-	var cursor;
 	
-	var isMouseDown;
-	var oldMidX;
-	var oldMidY;
-	var oldX;
-	var oldY;
-	
-	var pensize;
 	var selectedColor;
 	var selectedTool;
 	
-	var Layers;
-	var LayerCache;
+	var editlog;
 	
-	var isEditStarted;
-	var undoCount;
+	/* basic functions */
 	
-	
-	self.editlog;
-	
-	self.init = function(element_id) {
-		canvas = document.getElementById(element_id);
-		canvas.onselectstart = function () { return false; } // ie
-		canvas.onmousedown = function () { return false; } // mozilla
-		canvas_ctx = canvas.getContext("2d");
-		
-		stage = new Stage(canvas);
-		stage.autoClear = true;
-		stage.snapToPixelEnabled = true;
-		//stage.enableMouseOver(10);
-		
-		stage.onMouseDown = handleMouseDown;
-		stage.onMouseUp = handleMouseUp;
-		stage.onMouseMove = handleMouseMove;
-		stage.onMouseOut = handleMouseOut;
-		
-		backgroundShape = self.newBG();
-		
-		Layers = new Array();
-		currentShape = self.newLayer();
-		
-		editLogging('new');
-		
-		self.toolSelect('pen');
-		self.penColor("rgba(120,180,185,0.5)");
-		self.penSize(10);
-		
-		//Ticker.setFPS(30);
-		//Ticker.addListener(window);
-		Touch.enable(stage);
-		stage.update();
+	// by econosys system http://logic.moo.jp/data/archives/765.html
+	var isset = function( data ){
+		return ( typeof( data ) != 'undefined' );
 	};
 	
-	var handleMouseMove = function(e) {
-		
-		var pt = new Point(stage.mouseX, stage.mouseY);
-		var midpt = new Point(oldX + pt.x>>1, oldY+pt.y>>1);
-		if (isMouseDown) {
-			selectedTool.mousemove(pt,midpt);
-			oldX = pt.x;
-			oldY = pt.y;
-			oldMidX = midpt.x;
-			oldMidY = midpt.y;
-		}else{
-			moveCur(cursor);
-			stage.update();
+	// by memory_agape http://d.hatena.ne.jp/memory_agape/20120203/1328245142
+	var extend = function(){
+		for(var d={},b=0,a=0,c=arguments.length; b<c; b++){
+			for(a in arguments[b]){
+				d[a]=arguments[b][a];
+			}
 		}
+		return d;
 	};
-
-	var handleMouseDown = function(e) {
-		cursor.visible = false;
-		
-		isMouseDown = true;
-		isEditStarted = true;
-		
-		var pt = new Point(stage.mouseX, stage.mouseY);
-		oldX = pt.x;
-		oldY = pt.y;
-		oldMidX = pt.x;
-		oldMidY = pt.y;
-		selectedTool.mousedown(pt);
+	
+	/* mouse ivents */
+	var handleMouseMove = function(event) {
+		selectedTool.mousemove(event);
 	};
-
-	var handleMouseUp = function() {
-		isMouseDown = false;
-		if(isEditStarted){
-			isEditStarted = false;
-			selectedTool.mouseup();
-			stage.update();
-			editLogging();
+	
+	var handleMouseDown = function(event) {
+		selectedTool.mousedown(event);
+	};
+	
+	var handleMouseUp = function(event) {
+		selectedTool.mouseup(event);
+	};
+	var handleMouseOut = function(event) {
+		selectedTool.mouseout(event);
+	};
+	
+	/* tool */
+	var EditTool = function(name){
+		this.name = name;
+	};
+	EditTool.prototype = {
+		name : "tool",
+		stroke : false,
+		busy : false,
+		oldX : 0,
+		oldY : 0,
+		oldMidX : 0,
+		oldMidY : 0,
+		size : 10,
+		mousemove : function(event) {
+			var pt = new createjs.Point(event.rawX, event.rawY);
+			var midpt = new createjs.Point(this.oldX + pt.x>>1, this.oldY+pt.y>>1);
+			if (this.busy) {
+				this.stroke = true;
+				this.move(pt,midpt);
+			}
+			this.oldX = pt.x;
+			this.oldY = pt.y;
+			this.oldMidX = midpt.x;
+			this.oldMidY = midpt.y;
+		},
+		mousedown :  function(event) {
+			var pt = new createjs.Point(event.rawX, event.rawY);
+			this.stroke = false;
+			this.busy = true;
+			this.count = 0;
+			
+			this.start(pt);
+			
+			this.oldX = pt.x;
+			this.oldY = pt.y;
+			this.oldMidX = pt.x;
+			this.oldMidY = pt.y;
+		},
+		mouseup : function() {
+			if(this.busy){
+				this.end();
+				
+				this.busy = false;
+				stage.update();
+				editlog.logging();
+			}
+		},
+		mouseout : function() {
+			layerdraw(true);
+		},
+		move : function(pt,midPoint) {
+			currentShape.graphics.moveTo(midPoint.x, midPoint.y).curveTo(this.oldX, this.oldY, this.oldMidX, this.oldMidY);
+		},
+		start : function(pt) {
+			var g = currentShape.graphics;
+			g.setStrokeStyle(this.size, 'round', 'round').beginStroke(selectedColor);
+		},
+		end : function() {
+			var g = currentShape.graphics;
+			if(!this.stroke){
+				g.beginFill(selectedColor).drawCircle(this.oldX, this.oldY, 1).endFill();
+			}
+			g.endStroke();
+			
+			currentShape.updateCache("source-overlay");
+			g.clear();
+		},
+		tick : function() {
+			if(this.busy){
+				self.layer.draw(true);
+			}
 		}
-	};
-	
-	var handleMouseOut = function() {
-		cursor.visible = false;
-		layerdraw(true);
-	}
-	
-	var moveCur = function(shape) {
-		shape.visible = true;
-		shape.x = stage.mouseX;
-		shape.y = stage.mouseY;
-	};
-	
-	/*ui*/
-	var createCursor = function(type,size,shape) {
-		if((typeof(shape) != 'function')&&(typeof(shape) != 'object')){
-			shape = new Shape();
-			shape.name = "cur";
-			return stage.addChild(drawCursor(shape,type,size));
-		}else{
-			shape.uncache();
-			return drawCursor(shape,type,size);
-		}
-	};
-	
-	var drawCursor = function(shape,type,size) {
-		var g = shape.graphics;
-		g.setStrokeStyle(1, 'round', 'round');
-		shape.cache(-(size/2),-(size/2),size+2,size+2);
-		switch(type){
-			case "eraser":
-				g.beginFill('rgba(255,255,255,0.5)');
-				g.setStrokeStyle(1, 'round', 'round');
-				g.beginStroke("rgba(0,0,0,0.5)");
-				g.drawCircle(1,1,size/2);
-				break;
-			default:
-				g.beginFill(selectedColor);
-				g.setStrokeStyle(1, 'round', 'round');
-				g.beginStroke("rgba(255,255,255,1)");
-				g.drawCircle(1,1,size/2);
-				break;
-		}
-		shape.updateCache();
-		g.clear();
-		return shape;
 	};
 	
 	/* layers */
-	var layerdraw = function(drawself){
-		stage.update();
-		/* warning: this function call lowlevel function.*/
-		backgroundShape.draw(canvas_ctx);
-		for (var i = 0 ; loopedlayer = Layers[i] ; i++){
-			loopedlayer.draw(canvas_ctx);
-			if((currentShape.layerid==i)&&(drawself)){
-				loopedlayer.draw(canvas_ctx,true);
+	var LayerControl = function(color){
+		this.bgcreate(color);
+	};
+	LayerControl.prototype = {
+		data : [],
+		order : [],
+		cache : "",
+		backgroundshape : {},
+		draw : function(drawself){
+			/*
+			warning: draw function is advanced uses.
+			http://www.createjs.com/Docs/EaselJS/Graphics.html#method_draw
+			*/
+			this.backgroundshape.draw(canvas_ctx);
+			for (var i = 0 ; loopedlayer = this.data[this.order[i]]; i++){
+				loopedlayer.draw(canvas_ctx);
+				if((currentShape.layerid==this.order[i])&&(drawself)){
+					loopedlayer.draw(canvas_ctx,true);
+				}
 			}
+		},
+		sort : function(){
+			stage.addChild(this.backgroundshape);
+			for (var i = 0 ; loopedlayer = this.data[this.order[i]]; i++){
+				stage.addChild(loopedlayer);
+			}
+			stage.update();
+		},
+		add : function() {
+			var s = new createjs.Shape();
+			var lid = stage.getNumChildren();
+			s.cache(0,0,canvas.width,canvas.height);
+			s.layerid = this.data.length;
+			s.name = "Layer"+s.layerid;
+			s.snapToPixel=true;
+			s.compositeOperation="source-overlay";
+			this.order.push(s.layerid);
+			this.data.push(stage.addChild(s));
+			return s;
+		},
+		select : function(layer_id) {
+			if(isset(this.data[layer_id])){
+				currentShape = this.data[layer_id];
+				this.cache = currentShape.getCacheDataURL();
+				return true;
+			}else{
+				return false;
+			}
+		},
+		load : function(layer_id,base64data) {
+			var targetLayer = this.data[layer_id];
+			var workimage = new Image();
+			workimage.src = base64data;
+			workimage.onload = function(){
+				targetLayer.graphics.beginBitmapFill(workimage).drawRect(0, 0, canvas.width, canvas.height).endFill();
+				targetLayer.updateCache();
+				targetLayer.graphics.clear();
+				stage.update();
+			}
+			this.sort;
+		},
+		bgcreate : function(color){
+			var bg = new createjs.Shape();
+			var defaultcolor = "rgba(255,255,255,1)";
+			if(isset(color)){
+				defaultcolor = color;
+			}
+			
+			bg.name = "background";
+			bg.cache(0,0,canvas.width,canvas.height);
+			bg.graphics.beginFill(defaultcolor).drawRect(0, 0, canvas.width, canvas.height).endFill();
+			bg.updateCache();
+			bg.graphics.clear();
+			this.backgroundshape = stage.addChild(bg);
+			return this.backgroundshape;
 		}
-	};
-	
-	self.newBG = function(){
-		var bg = new Shape();
-		bg.name = "background";
-		bg.cache(0,0,canvas.width,canvas.height);
-		bg.graphics.beginFill("rgba(255,255,255,1)");
-		bg.graphics.drawRect(0, 0, canvas.width, canvas.height);
-		bg.graphics.endFill();
-		bg.updateCache();
-		bg.graphics.clear();
-		return stage.addChild(bg);
-	}
-	
-	self.newLayer = function() {
-		var s = new Shape();
-		var lid = stage.getNumChildren();
-		s.name = "Shape"+lid;
-		s.layerid = Layers.length;
-		s.cache(0,0,canvas.width,canvas.height);
-		s.compositeOperation="source-overlay";
-		Layers.push(stage.addChild(s));
-		return s;
-	};
-	
-	self.selectLayer = function(layer_id) {
-		currentShape = Layers[layer_id];
-		LayerCache = currentShape.getCacheDataURL();
 	};
 	
 	/* log */
-	var editLogging = function(label){
-		var cachedata = currentShape.getCacheDataURL();
-		var prevdata;
-		var l_layercache;
-		
-		//log setup
-		if(!isset(label)){
-			label=selectedTool.name;
+	var LogControl = function(max){
+		if(isFinite(max)){
+			this.undomax = max | 0;
 		}
-		
-		if(!isset(self.editlog)){
-			self.editlog = new Array();
-			undoCount=0;
-		}else{
-			prevdata = self.editlog[(self.editlog.length-1)];
-			if(prevdata.layer == currentShape.layerid){
-				l_layercache = undefined;
+	};
+	LogControl.prototype = {
+		data : [],
+		undomax : 10,
+		undocount : 0,
+		logging : function(label){
+			var cachedata = currentShape.getCacheDataURL();
+			var layercache;
+			
+			//log setup
+			if(!isset(label)){
+				label=selectedTool.name;
+			}
+			
+			if(this.data.length > 0){
+				var prevdata = this.data[(this.data.length-1)];
+				if(prevdata.layer == currentShape.layerid){
+					layercache = undefined;
+				}else{
+					layercache = self.layer.cache;
+				}
+			}
+			
+			//logging
+			if(this.undocount>0){
+				this.data = this.data.slice(0,(this.data.length - this.undocount));
+				this.undocount=0;
+			}
+			
+			this.data.push({
+				"label" : label,
+				"layer" : currentShape.layerid,
+				"b64" : cachedata,
+				"layercache" : layercache,
+				"layerorder" : self.layer.order
+			});
+			
+			if(this.data.length > this.undomax){
+				this.data.shift();
+			}
+			
+			return (this.data.length-1);
+		},
+		load : function(logpoint,undo){
+			var targetLog = this.data[logpoint];
+			var layercache;
+			
+			if((logpoint < (this.data.length-1))&&(undo===true)){
+				layercache = this.data[(logpoint+1)]["layercache"];
+			}
+			
+			if(isset(layercache)){
+				targetLog = this.data[(logpoint+1)];
+				self.layer.load(targetLog.layer,layercache);
 			}else{
-				l_layercache = LayerCache;
+				self.layer.load(targetLog.layer,targetLog.b64);
+			}
+			
+			return targetLog.step;
+		},
+		undo : function(){
+			var logpoint=(this.data.length-1)-(this.undocount+1);
+			
+			if(logpoint>=0){
+				this.undocount++;
+				return this.load(logpoint,true);
+			}else{
+				return false;
+			}
+		},
+		redo : function(){
+			var logpoint=(this.data.length-1)-(this.undocount-1);
+			
+			if((logpoint>0)&&(this.undocount>0)){
+				this.undocount--;
+				return this.load(logpoint,false);
+			}else{
+				return false;
 			}
 		}
-		
-		//logging
-		if(undoCount>0){
-			self.editlog = self.editlog.slice(0,(self.editlog.length-undoCount));
-			undoCount=0;
-		}
-		
-		self.editlog.push({
-			"label":label,
-			"layer":currentShape.layerid,
-			"b64":cachedata,
-			"layercache":l_layercache
-		});
-		
-		if(self.editlog.length > logMax){
-			self.editlog.shift();
-		}
-		
-		return (self.editlog.length-1);
 	};
 	
-	self.logset = function(logpoint,enablecache){
-		var targetLog = self.editlog[logpoint];
-		var layercache;
-		if(!isset(enablecache)){
-			enablecache=false;
+	/* pen */
+	var penTool = new EditTool('pen');
+	var eraserTool = new EditTool('eraser');
+	eraserTool.start = function(pt) {
+		var g = currentShape.graphics;
+		g.setStrokeStyle(this.size, 'round', 'round').beginStroke("rgba(0,0,0,0.5)");
+	};
+	eraserTool.end = function() {
+		if(!this.stroke){
+			currentShape.graphics.drawCircle(this.oldX, this.oldY, 1);
 		}
-		
-		if((logpoint < (self.editlog.length-1))&&(enablecache)){
-			layercache = self.editlog[(logpoint+1)]['layercache'];
-		}
-		
-		var workimage = new Image();
-		if(isset(layercache)){
-			workimage.src = layercache;
-			targetLog = self.editlog[(logpoint+1)];
-		}else{
-			workimage.src = targetLog.b64;
-		}
-		
-		workimage.onload = function(){
-			Layers[targetLog.layer].graphics.beginBitmapFill(workimage);
-			Layers[targetLog.layer].graphics.drawRect(0, 0, canvas.width, canvas.height);
-			Layers[targetLog.layer].graphics.endFill();
-			Layers[targetLog.layer].updateCache();
-			Layers[targetLog.layer].graphics.clear();
-			self.selectLayer(currentShape.layerid);
-			stage.update();
-		}
-		
-		return targetLog.step;
+		currentShape.updateCache("destination-out");
+		currentShape.graphics.endStroke().clear();
+	};
+	eraserTool.tick = function() {
+		currentShape.updateCache("destination-out");
+		self.layer.draw(false);
 	};
 	
+	/* undo/redo */
 	self.undo = function(){
-		var logpoint=(self.editlog.length-1)-(undoCount+1);
-		
-		if(logpoint>=0){
-			undoCount++;
-			return self.logset(logpoint,true);
-		}else{
-			return false;
-		}
+		return editlog.undo();
 	};
 	
 	self.redo = function(){
-		var logpoint=(self.editlog.length-1)-(undoCount-1);
-		
-		if((logpoint>0)&&(undoCount>0)){
-			undoCount--;
-			return self.logset(logpoint);
-		}else{
-			return false;
-		}
+		return editlog.redo();
 	};
 	
-	/* color and size */
-	self.penSize = function(setsize){
-		if(isset(setsize)){
-			pensize = setsize;
-			cursor = createCursor(selectedTool.name,pensize,cursor);
-			return pensize;
-		}else{
-			return pensize;
-		}
-	};
-	
-	self.penColor = function(setcolor){
-		if(isset(setcolor)){
-			selectedColor = setcolor;
-			cursor = createCursor(selectedTool.name,pensize,cursor);
-			return selectedColor;
-		}else{
-			return selectedColor;
-		}
-	};
-	
+	/* tool select */
 	self.toolSelect = function(toolname){
 		switch(toolname){
 			case "eraser":
@@ -329,61 +346,68 @@ function paint2(){
 				selectedTool = penTool;
 				break;
 		}
-		cursor = createCursor(selectedTool.name,pensize,cursor);
 		return true;
 	};
 	
-	
-	//pen
-	var penTool = {
-		name : "pen",
-		mousemove : function(pt,midPoint) {
-			currentShape.graphics.moveTo(midPoint.x, midPoint.y);
-			currentShape.graphics.curveTo(oldX, oldY, oldMidX, oldMidY);
-			layerdraw(true);
-		},
-		mousedown :  function(pt) {
-			var g = currentShape.graphics;
-			g.setStrokeStyle(pensize, 'round', 'round');
-			g.beginStroke(selectedColor);
-			g.beginFill();
-		},
-		mouseup : function() {
-			currentShape.graphics.endFill();
-			currentShape.graphics.endStroke();
-			
-			currentShape.updateCache("source-overlay");
-			currentShape.graphics.clear();
+	/* color and size */
+	self.toolSize = function(setsize){
+		if(isset(setsize)){
+			selectedTool.size = setsize;
+			return selectedTool.size;
+		}else{
+			return selectedTool.size;
 		}
 	};
 	
-	var eraserTool = {
-		name : "eraser",
-		mousemove : function(pt,midPoint) {
-			currentShape.graphics.moveTo(midPoint.x, midPoint.y);
-			currentShape.graphics.curveTo(oldX, oldY, oldMidX, oldMidY);
-			
-			currentShape.updateCache("destination-out");
-			layerdraw(false);
-		},
-		mousedown :  function(pt) {
-			var g = currentShape.graphics;
-			g.setStrokeStyle(pensize, 'round', 'round');
-			g.beginStroke("rgba(0,0,0,0.1)");
-			g.beginFill();
-		},
-		mouseup : function() {
-			currentShape.graphics.endFill();
-			currentShape.graphics.endStroke();
-			
-			currentShape.graphics.clear();
+	self.toolColor = function(setcolor){
+		if(isset(setcolor)){
+			selectedColor = setcolor;
+			return selectedColor;
+		}else{
+			return selectedColor;
 		}
+	};
+	
+	/* timeline ivents */
+	self.tick = function(event) {
+		selectedTool.tick();
+	};
+	self.stop = function() {
+		createjs.Ticker.removeListener(self);
+	};
+	
+	self.init = function(element_id) {
+		//get context of canvas
+		canvas = document.getElementById(element_id);
+		canvas_ctx = canvas.getContext("2d");
 		
+		//create stage
+		stage = new createjs.Stage(canvas);
+		stage.snapToPixelEnabled = true;
+		stage.mouseMoveOutside = true;
+		stage.autoClear = true;
+		
+		//create workspace
+		self.layer = new LayerControl();
+		currentShape = self.layer.add();
+		
+		editlog = new LogControl(20);
+		editlog.logging('new');
+		
+		self.toolSelect('pen');
+		self.toolColor("rgba(120,180,185,0.5)");
+		self.toolSize(5);
+		
+		//edit start
+		stage.onMouseDown = handleMouseDown;
+		stage.onMouseUp = handleMouseUp;
+		stage.onMouseMove = handleMouseMove;
+		stage.onMouseOut = handleMouseOut;
+		stage.update();
+		
+		createjs.Touch.enable(stage);
+		createjs.Ticker.addListener(self);
 	};
-	
-	var isset = function( data ){
-		return ( typeof( data ) != 'undefined' );
-	}
 	
 }
 
