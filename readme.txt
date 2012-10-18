@@ -1,7 +1,8 @@
-drowsepost paint2
+createjs.paint2
+======================
 
-[use javascript and canvas]
-easy paint tool. feat CreateJS
+[use javascript and canvas]   
+easy paint tool. use CreateJS
 
-Sample
-http://drowsepost.com/sample/paint2/demo.html
+Sample  
+http://drowsepost.com/sample/paint2/201210/demo.html
