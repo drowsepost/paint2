@@ -38,18 +38,30 @@
 		
 		body.paint2 #page #easel{
 			padding: 20px;
-			user-select: none;
 		}
 		body.paint2 #page #easel img,
 		body.paint2 #page #easel canvas{
 			vertical-align:bottom;
+			-ms-user-select: none;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-webkit-touch-callout: none;
+			-webkit-user-drag: none;
+			user-select: none;
 		}
 
 		body.paint2 #page #easel canvas{
-			box-shadow: 0px 0px 20px -5px rgba(0, 0, 0, 0.5);
+			/*box-shadow: 0px 0px 20px -5px rgba(0, 0, 0, 0.5);*/
 		}
 		
 		body.paint2 #page #pallets{
+			-ms-user-select: none;
+			-webkit-user-select: none;
+			-khtml-user-select: none;
+			-moz-user-select: none;
+			-webkit-touch-callout: none;
+			-webkit-user-drag: none;
 			user-select: none;
 		}
 
@@ -69,7 +81,7 @@
 	<script>
 		var dpc = new paint2();
 		$(function(){
-			$("#easel").hide().empty().append('<canvas id="myCanvas" width="820" height="500">Browser not supported with Canvas. </canvas>');
+			$("#easel").hide().empty().append('<canvas id="myCanvas" width="900" height="600">Browser not supported with Canvas. </canvas>');
 			dpc.init('myCanvas');
 			dpc.layer.add();
 			dpc.layer.add();
@@ -80,28 +92,22 @@
 </head>
 <body class="paint2">
 <div id="page">
-	<header id="header">
-		<h1><a href="#">paint2 demo</a></h1>
-	</header>
 	<div id="easel">
 		<p>requed javascript</p>
 	</div>
 	<div id="pallets">
 		<input type="button" onclick="dpc.toolSelect('pen');" value="pen tool" />
-		<input type="button" onclick="dpc.toolColor(createjs.Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 1));" value="color change" />
+		<input type="button" onclick="dpc.toolColor(createjs.Graphics.getRGB(Math.random()*255 | 0 ,Math.random()*255 | 0, Math.random()*255 | 0, 0.5));" value="color change" />
 		<input type="button" onclick="dpc.toolSelect('eraser');" value="eraser tool" /><br />
 		
 		<input type="button" onclick="dpc.layer.select(0);" value="layer1" />
 		<input type="button" onclick="dpc.layer.select(1);" value="layer2" />
 		<input type="button" onclick="dpc.layer.select(2);" value="layer3" /><br />
 		
-		<input type="button" onclick="dpc.undo();" value="&lt; undo" />
-		<input type="button" onclick="dpc.redo();" value="redo &gt;" />
+		<input type="button" onclick="dpc.log.undo();" value="&lt; undo" />
+		<input type="button" onclick="dpc.log.redo();" value="redo &gt;" />
 		
 	</div>
-	<footer id="footer">
-		(c)2012 canotun
-	</footer>
 </div>
 </body>
 </html>
