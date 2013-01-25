@@ -5,4 +5,4 @@ createjs.paint2
 easy paint tool. use CreateJS
 
 Sample  
-http://drowsepost.com/sample/paint2/201210/demo.html
+http://drowsepost.com/sample/paint2/201301/demo.html
